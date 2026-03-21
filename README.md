@@ -1,6 +1,16 @@
 # News Digest
 
-A local news digest tool that fetches NYT articles, summarizes them with Ollama (Llama 3), and shows only new information each day — a "news diff" for personal use.
+A local news digest tool that fetches NYT articles, summarizes them with Ollama (Llama 3), and shows only new information each day — a "news diff" for personal use. Includes a web UI for browsing digests.
+
+![Light mode](screenshots/digest-light.png)
+
+<details>
+<summary>Dark mode & article modal</summary>
+
+![Dark mode](screenshots/digest-dark.png)
+![Article modal](screenshots/modal.png)
+
+</details>
 
 ## Setup
 
@@ -32,6 +42,16 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
 ```
 
 Output goes to `output/YYYY-MM-DD.md`. Run it again the next day and it diffs against the previous day's summaries to surface only new information.
+
+### Web UI
+
+```bash
+pip install flask markdown
+~/programs/news-digest/.venv/bin/python ~/programs/news-digest/app.py
+# Open http://localhost:5050
+```
+
+Features: section filtering, read tracking, dark mode, article modal with full summaries.
 
 ## Benchmark
 
