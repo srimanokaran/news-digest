@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import requests
 
 from config import (
+    EMAIL_ENABLED,
     NYT_API_KEY,
     OLLAMA_MODEL,
     OLLAMA_PARALLEL_WORKERS,
@@ -15,6 +16,7 @@ from config import (
     SECTION_KEYWORDS,
     SECTIONS,
 )
+from email_digest import build_html, send_digest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -222,6 +224,14 @@ def main():
 
     path = write_markdown(today, summaries_by_section, diff_text)
     logging.info(f"Digest written to {path}")
+
+    # Step E: Email digest
+    if EMAIL_ENABLED:
+        try:
+            html = build_html(summaries_by_section, diff_text, date_str)
+            send_digest(html, date_str)
+        except Exception as e:
+            logging.error(f"Failed to send digest email: {e}")
 
     # Save today's data for tomorrow's diff
     data_path = os.path.join(DATA_DIR, f"{date_str}.json")

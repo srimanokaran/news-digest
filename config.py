@@ -18,3 +18,9 @@ SECTION_KEYWORDS = {
 OLLAMA_MODEL = "llama3"
 OLLAMA_URL = "http://localhost:11434"
 OLLAMA_PARALLEL_WORKERS = 4
+
+# Email digest settings
+EMAIL_ENABLED = os.getenv("EMAIL_ENABLED", "false").lower() in ("true", "1", "yes")
+GMAIL_ADDRESS = os.getenv("GMAIL_ADDRESS", "")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD", "")
+DIGEST_EMAIL_TO = os.getenv("DIGEST_EMAIL_TO", "")
