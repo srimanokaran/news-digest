@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Digest — {{ date }}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,600;1,400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #F5F0E8;
+    --bg-surface: #FFFFFF;
+    --bg-surface-hover: #FBF8F3;
+    --bg-nav: #FFFDFB;
+    --border: #E8E0D4;
+    --border-hover: #D4C9B8;
+    --text-primary: #2D2B28;
+    --text-secondary: #6B6560;
+    --text-tertiary: #9B9490;
+    --accent: #C5623A;
+    --accent-hover: #B5532A;
+    --accent-light: #F5E6DE;
+    --accent-text: #A14520;
+    --shadow-card: rgba(0,0,0,0.04);
+  }
+
+  html.dark {
+    --bg: #1C1917;
+    --bg-surface: #272320;
+    --bg-surface-hover: #302B27;
+    --bg-nav: #221F1C;
+    --border: #3D3632;
+    --border-hover: #514840;
+    --text-primary: #E8E0D4;
+    --text-secondary: #A89E94;
+    --text-tertiary: #736A62;
+    --accent: #D4845A;
+    --accent-hover: #E09570;
+    --accent-light: #3A2A20;
+    --accent-text: #D4845A;
+    --shadow-card: rgba(0,0,0,0.2);
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg); color: var(--text-primary);
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent-text); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--bg-nav);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    position: sticky; top: 0; z-index: 10;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .nav-inner {
+    max-width: 1120px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+  .nav-left { display: flex; align-items: center; gap: 0.5rem; }
+  .nav-brand {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1rem; font-weight: 600; color: var(--text-primary);
+    letter-spacing: -0.01em; margin-right: 0.75rem;
+  }
+  .nav-date-group { display: flex; align-items: center; gap: 0.35rem; }
+  .nav-date {
+    font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);
+    padding: 0.25rem 0.6rem; border-radius: 6px;
+    background: rgba(0,0,0,0.03);
+  }
+  .arrow {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 8px;
+    color: var(--text-secondary); font-size: 0.85rem;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+  .arrow:hover {
+    background: var(--accent-light); color: var(--accent);
+    border-color: var(--border); text-decoration: none;
+  }
+  .arrow.disabled { opacity: 0.25; pointer-events: none; }
+
+  .nav-right { display: flex; align-items: center; gap: 0.5rem; }
+  .theme-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-secondary); cursor: pointer;
+    transition: all 0.15s ease; font-size: 1rem; line-height: 1;
+  }
+  .theme-toggle:hover { border-color: var(--border-hover); background: var(--bg-surface-hover); }
+  .theme-icon-dark { display: none; }
+  html.dark .theme-icon-light { display: none; }
+  html.dark .theme-icon-dark { display: inline; }
+
+  .nav-tabs { display: flex; gap: 0.125rem; }
+  .tab {
+    padding: 0.35rem 0.85rem; border-radius: 8px; font-size: 0.8rem;
+    font-weight: 500; color: var(--text-tertiary);
+    transition: all 0.15s ease;
+  }
+  .tab:hover {
+    background: rgba(0,0,0,0.04); color: var(--text-secondary);
+    text-decoration: none;
+  }
+  .tab.active {
+    background: var(--accent); color: white;
+    box-shadow: 0 1px 3px rgba(197,98,58,0.25);
+  }
+  .tab.active:hover { background: var(--accent-hover); color: white; }
+
+  /* ── Main ── */
+  .container {
+    max-width: 1120px; margin: 0 auto;
+    padding: 1.5rem 1.5rem 4rem;
+  }
+  .container.narrow { max-width: 720px; }
+
+  /* ── Section filter bar ── */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 0.35rem;
+    margin-bottom: 1.75rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .filter-pill {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.75rem; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer; transition: all 0.15s ease;
+    user-select: none;
+  }
+  .filter-pill:hover { border-color: var(--border-hover); }
+  .filter-pill .pill-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .filter-pill .pill-count {
+    font-weight: 500; color: var(--text-tertiary);
+    font-size: 0.68rem;
+  }
+  .filter-pill.active { border-color: var(--text-secondary); background: var(--bg-surface-hover); }
+
+  .filter-pill[data-section="all"].active { border-color: var(--accent); color: var(--accent-text); background: var(--accent-light); }
+  .filter-pill[data-section="technology"] .pill-dot { background: #5B8DEF; }
+  .filter-pill[data-section="technology"].active { border-color: #5B8DEF; color: #4A7AD9; background: #EBF1FD; }
+  .filter-pill[data-section="business"] .pill-dot { background: #4CAF82; }
+  .filter-pill[data-section="business"].active { border-color: #4CAF82; color: #3D9B6E; background: #E8F7F0; }
+  .filter-pill[data-section="world"] .pill-dot { background: #E07B5A; }
+  .filter-pill[data-section="world"].active { border-color: #E07B5A; color: #C96A4A; background: #FCEEE9; }
+  .filter-pill[data-section="opinion"] .pill-dot { background: #9B7ED0; }
+  .filter-pill[data-section="opinion"].active { border-color: #9B7ED0; color: #8568B8; background: #F2ECF9; }
+  .filter-pill[data-section="science"] .pill-dot { background: #D4A843; }
+  .filter-pill[data-section="science"].active { border-color: #D4A843; color: #B89235; background: #FAF3E3; }
+  .filter-pill[data-section="health"] .pill-dot { background: #4DB8A0; }
+  .filter-pill[data-section="health"].active { border-color: #4DB8A0; color: #3DA08A; background: #E8F7F3; }
+  .filter-pill[data-section="sports"] .pill-dot { background: #D08B5B; }
+  .filter-pill[data-section="sports"].active { border-color: #D08B5B; color: #B87545; background: #FAF0E7; }
+  .filter-pill[data-section="arts"] .pill-dot { background: #C07ABF; }
+  .filter-pill[data-section="arts"].active { border-color: #C07ABF; color: #A865A7; background: #F5EAF5; }
+
+  html.dark .filter-pill[data-section="all"].active { background: var(--accent-light); }
+  html.dark .filter-pill[data-section="technology"].active { color: #7BA4F7; background: #1E2A3E; }
+  html.dark .filter-pill[data-section="business"].active { color: #6BC49A; background: #1A3028; }
+  html.dark .filter-pill[data-section="world"].active { color: #F09070; background: #3A2220; }
+  html.dark .filter-pill[data-section="opinion"].active { color: #B89AE0; background: #2A2040; }
+  html.dark .filter-pill[data-section="science"].active { color: #E0B850; background: #302818; }
+  html.dark .filter-pill[data-section="health"].active { color: #6DD0B8; background: #1A3030; }
+  html.dark .filter-pill[data-section="sports"].active { color: #E0A070; background: #302418; }
+  html.dark .filter-pill[data-section="arts"].active { color: #D09AD0; background: #302040; }
+
+  html.dark .tab:hover { background: rgba(255,255,255,0.06); }
+  html.dark .filter-pill:hover { border-color: var(--border-hover); }
+
+  /* ── Card grid ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* ── Section groups inside grid ── */
+  .section-group { margin-bottom: 1.75rem; }
+  .section-group.hidden { display: none; }
+  .section-header {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 0.85rem; padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .section-label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .section-count {
+    font-size: 0.7rem; font-weight: 500; color: var(--text-tertiary);
+    margin-left: auto;
+  }
+
+  .technology .section-dot { background: #5B8DEF; }
+  .technology .section-label { color: #4A7AD9; }
+  .business .section-dot { background: #4CAF82; }
+  .business .section-label { color: #3D9B6E; }
+  .world .section-dot { background: #E07B5A; }
+  .world .section-label { color: #C96A4A; }
+  .opinion .section-dot { background: #9B7ED0; }
+  .opinion .section-label { color: #8568B8; }
+  .science .section-dot { background: #D4A843; }
+  .science .section-label { color: #B89235; }
+  .health .section-dot { background: #4DB8A0; }
+  .health .section-label { color: #3DA08A; }
+  .sports .section-dot { background: #D08B5B; }
+  .sports .section-label { color: #B87545; }
+  .arts .section-dot { background: #C07ABF; }
+  .arts .section-label { color: #A865A7; }
+
+  /* ── Article cards ── */
+  .card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.15rem 1.35rem;
+    transition: all 0.2s ease;
+    display: flex; flex-direction: column;
+  }
+  .card:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-surface-hover);
+    box-shadow: 0 2px 12px var(--shadow-card);
+    transform: translateY(-1px);
+  }
+  .card .card-section-tag {
+    font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 0.5rem;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+  }
+  .card .card-section-tag .pill-dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+  }
+  .card h3 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1rem; font-weight: 600; line-height: 1.4;
+    margin-bottom: 0.5rem; letter-spacing: -0.01em;
+  }
+  .card h3 a {
+    color: var(--text-primary);
+    transition: color 0.15s;
+  }
+  .card h3 a:hover { color: var(--accent); }
+  .card h3 a::after {
+    content: ' \2197'; font-size: 0.7em; color: var(--text-tertiary);
+    transition: color 0.15s;
+  }
+  .card h3 a:hover::after { color: var(--accent); }
+  .card { cursor: pointer; }
+  .card .summary {
+    font-size: 0.82rem; color: var(--text-secondary);
+    line-height: 1.65; flex: 1;
+    display: -webkit-box; -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .card .meta {
+    font-size: 0.7rem; color: var(--text-tertiary);
+    margin-top: 0.6rem; font-weight: 500;
+    padding-top: 0.5rem; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* ── Read checkbox ── */
+  .read-toggle {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    cursor: pointer; user-select: none;
+  }
+  .read-check {
+    appearance: none; -webkit-appearance: none;
+    width: 16px; height: 16px; border-radius: 4px;
+    border: 1.5px solid var(--border-hover);
+    background: var(--bg-surface); cursor: pointer;
+    transition: all 0.15s ease; position: relative; flex-shrink: 0;
+  }
+  .read-check:hover { border-color: var(--accent); }
+  .read-check:checked {
+    background: var(--accent); border-color: var(--accent);
+  }
+  .read-check:checked::after {
+    content: '';
+    position: absolute; top: 2px; left: 5px;
+    width: 4px; height: 8px;
+    border: solid white; border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  .read-label { font-size: 0.68rem; color: var(--text-tertiary); transition: color 0.15s; }
+  .read-check:checked ~ .read-label { color: var(--accent); }
+  .card.is-read { opacity: 0.55; }
+  .card.is-read:hover { opacity: 0.8; }
+
+  /* ── Diff / What's New ── */
+  .diff-content {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem 2rem;
+    line-height: 1.8; font-size: 0.925rem;
+  }
+  .diff-content h2 {
+    font-family: 'Newsreader', Georgia, serif;
+    color: var(--text-primary); font-size: 1.3rem;
+    margin-bottom: 1rem; letter-spacing: -0.02em;
+  }
+  .diff-content h3 {
+    font-family: 'Newsreader', Georgia, serif;
+    color: var(--accent-text); margin: 1.75rem 0 0.6rem;
+    font-size: 1.05rem;
+  }
+  .diff-content p {
+    margin-bottom: 0.85rem; color: var(--text-secondary);
+  }
+  .diff-content a { border-bottom: 1px solid var(--accent-light); }
+  .diff-content a:hover { border-bottom-color: var(--accent); }
+  .diff-content strong { color: var(--text-primary); font-weight: 600; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center; padding: 4rem 1.5rem;
+  }
+  .empty-icon {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--accent-light); display: inline-flex;
+    align-items: center; justify-content: center;
+    font-size: 1.3rem; margin-bottom: 1rem;
+  }
+  .empty-state h3 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.1rem; color: var(--text-primary); margin-bottom: 0.4rem;
+  }
+  .empty-state p {
+    font-size: 0.85rem; color: var(--text-tertiary); max-width: 320px; margin: 0 auto;
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.4);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 2rem;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  html.dark .modal-overlay { background: rgba(0,0,0,0.6); }
+
+  .modal {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 16px; max-width: 600px; width: 100%;
+    max-height: 80vh; overflow-y: auto;
+    padding: 2rem; position: relative;
+    transform: translateY(12px) scale(0.98);
+    transition: transform 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+  }
+  html.dark .modal { box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+  .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+  .modal-close {
+    position: absolute; top: 1rem; right: 1rem;
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg-surface);
+    color: var(--text-tertiary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; transition: all 0.15s;
+  }
+  .modal-close:hover { background: var(--bg-surface-hover); color: var(--text-primary); border-color: var(--border-hover); }
+
+  .modal-section {
+    font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-tertiary);
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+  .modal-section .pill-dot {
+    width: 7px; height: 7px; border-radius: 50%; display: inline-block;
+  }
+  .modal h2 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: 1.35rem; font-weight: 600; line-height: 1.35;
+    letter-spacing: -0.02em; color: var(--text-primary);
+    margin-bottom: 1rem; padding-right: 2.5rem;
+  }
+  .modal .modal-summary {
+    font-size: 0.92rem; color: var(--text-secondary);
+    line-height: 1.8; margin-bottom: 1.25rem;
+  }
+  .modal .modal-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .modal .modal-date {
+    font-size: 0.75rem; color: var(--text-tertiary); font-weight: 500;
+  }
+  .modal .modal-link {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-size: 0.8rem; font-weight: 600; color: var(--accent);
+    padding: 0.4rem 0.9rem; border-radius: 8px;
+    background: var(--accent-light); transition: all 0.15s;
+  }
+  .modal .modal-link:hover { background: var(--accent); color: white; text-decoration: none; }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .card-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .nav-inner { padding: 0 0.25rem; }
+    .nav-brand { display: none; }
+    .container { padding: 1.25rem 1rem 3rem; }
+    .card { padding: 1rem 1.1rem; }
+    .diff-content { padding: 1.25rem; }
+    .filter-bar { gap: 0.3rem; }
+    .filter-pill { font-size: 0.68rem; padding: 0.25rem 0.6rem; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <div class="nav-left">
+      <span class="nav-brand">News Digest</span>
+      <div class="nav-date-group">
+        {% if prev_date %}
+          <a class="arrow" href="/{{ active_tab }}/{{ prev_date }}">&larr;</a>
+        {% else %}
+          <span class="arrow disabled">&larr;</span>
+        {% endif %}
+        <span class="nav-date">{{ date }}</span>
+        {% if next_date %}
+          <a class="arrow" href="/{{ active_tab }}/{{ next_date }}">&rarr;</a>
+        {% else %}
+          <span class="arrow disabled">&rarr;</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="nav-right">
+      <div class="nav-tabs">
+        <a class="tab {{ 'active' if active_tab == 'digest' }}" href="/digest/{{ date }}">Digest</a>
+        <a class="tab {{ 'active' if active_tab == 'diff' }}" href="/diff/{{ date }}">What's New</a>
+      </div>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode">
+        <span class="theme-icon-light">&#9790;</span>
+        <span class="theme-icon-dark">&#9788;</span>
+      </button>
+    </div>
+  </div>
+</nav>
+<div class="container {% block container_class %}{% endblock %}">
+  {% block content %}{% endblock %}
+</div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal" id="modal">
+    <button class="modal-close" id="modal-close">&times;</button>
+    <div class="modal-section" id="modal-section"></div>
+    <h2 id="modal-title"></h2>
+    <p class="modal-summary" id="modal-summary"></p>
+    <div class="modal-footer">
+      <span class="modal-date" id="modal-date"></span>
+      <a class="modal-link" id="modal-link" target="_blank" rel="noopener">Read article &#8599;</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// Apply saved theme immediately to prevent flash
+(function() {
+  var theme = localStorage.getItem('news-digest-theme');
+  if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Theme toggle
+  var btn = document.getElementById('theme-toggle');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('news-digest-theme', isDark ? 'dark' : 'light');
+    });
+  }
+  // Section filter
+  var pills = document.querySelectorAll('.filter-pill');
+  pills.forEach(function(pill) {
+    pill.addEventListener('click', function() {
+      var section = this.dataset.section;
+      pills.forEach(function(p) { p.classList.remove('active'); });
+      this.classList.add('active');
+      document.querySelectorAll('.section-group').forEach(function(g) {
+        g.classList.toggle('hidden', section !== 'all' && g.dataset.section !== section);
+      });
+    });
+  });
+
+  // Read checkboxes — persist in localStorage
+  var KEY = 'news-digest-read';
+  function getRead() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { return {}; }
+  }
+  function saveRead(map) { localStorage.setItem(KEY, JSON.stringify(map)); }
+
+  // Store original index on each card so unread cards return to their place
+  document.querySelectorAll('.card-grid').forEach(function(grid) {
+    Array.from(grid.children).forEach(function(c, i) { c.dataset.origIndex = i; });
+  });
+
+  // FLIP-animate cards: unread in original order first, read in original order last
+  function sortGrid(grid, animate) {
+    var cards = Array.from(grid.children);
+
+    var firstRects = new Map();
+    if (animate) {
+      cards.forEach(function(c) { firstRects.set(c, c.getBoundingClientRect()); });
+    }
+
+    cards.sort(function(a, b) {
+      var aRead = a.classList.contains('is-read') ? 1 : 0;
+      var bRead = b.classList.contains('is-read') ? 1 : 0;
+      if (aRead !== bRead) return aRead - bRead;
+      return parseInt(a.dataset.origIndex) - parseInt(b.dataset.origIndex);
+    });
+
+    cards.forEach(function(c) { grid.appendChild(c); });
+
+    if (!animate) return;
+
+    cards.forEach(function(c) {
+      var first = firstRects.get(c);
+      var last = c.getBoundingClientRect();
+      var dx = first.left - last.left;
+      var dy = first.top - last.top;
+      if (dx === 0 && dy === 0) return;
+      c.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+      c.style.transition = 'none';
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          c.style.transition = 'transform 0.35s cubic-bezier(0.25, 0.1, 0.25, 1)';
+          c.style.transform = '';
+        });
+      });
+    });
+  }
+
+  var readMap = getRead();
+  document.querySelectorAll('.card[data-article-id]').forEach(function(card) {
+    var id = card.dataset.articleId;
+    var cb = card.querySelector('.read-check');
+    if (!cb) return;
+    if (readMap[id]) { cb.checked = true; card.classList.add('is-read'); }
+    cb.addEventListener('change', function() {
+      var map = getRead();
+      if (this.checked) { map[id] = 1; card.classList.add('is-read'); }
+      else { delete map[id]; card.classList.remove('is-read'); }
+      saveRead(map);
+      sortGrid(card.closest('.card-grid'), true);
+    });
+  });
+
+  // Initial sort (no animation on page load)
+  document.querySelectorAll('.card-grid').forEach(function(g) { sortGrid(g, false); });
+
+  // Modal
+  var overlay = document.getElementById('modal-overlay');
+  var modal = document.getElementById('modal');
+  var SECTION_COLORS = {
+    technology: '#5B8DEF', business: '#4CAF82', world: '#E07B5A',
+    opinion: '#9B7ED0', science: '#D4A843', health: '#4DB8A0',
+    sports: '#D08B5B', arts: '#C07ABF'
+  };
+
+  function openModal(card) {
+    var section = card.dataset.section || '';
+    var color = SECTION_COLORS[section] || 'var(--text-tertiary)';
+    document.getElementById('modal-section').innerHTML =
+      '<span class="pill-dot" style="background:' + color + '"></span> ' + section;
+    document.getElementById('modal-title').textContent = card.dataset.title;
+    document.getElementById('modal-summary').textContent = card.dataset.summary;
+    document.getElementById('modal-date').textContent = card.dataset.date;
+    var link = document.getElementById('modal-link');
+    link.href = card.dataset.url;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  document.querySelectorAll('.card[data-title]').forEach(function(card) {
+    card.addEventListener('click', function(e) {
+      // Don't open modal when clicking links or the read checkbox
+      if (e.target.closest('a') || e.target.closest('.read-toggle')) return;
+      openModal(card);
+    });
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
+  });
+});
+</script>
+</body>
+</html>

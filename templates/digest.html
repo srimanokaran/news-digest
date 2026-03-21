@@ -1,0 +1,41 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="filter-bar">
+  <span class="filter-pill active" data-section="all">All <span class="pill-count">{{ sections|sum(attribute='1', default=[])|length if false else total_count }}</span></span>
+  {% for section_name, articles in sections %}
+  <span class="filter-pill" data-section="{{ section_name }}">
+    <span class="pill-dot"></span>
+    {{ section_name }}
+    <span class="pill-count">{{ articles|length }}</span>
+  </span>
+  {% endfor %}
+</div>
+
+{% for section_name, articles in sections %}
+  <div class="section-group" data-section="{{ section_name }}">
+    <div class="section-header {{ section_name }}">
+      <span class="section-dot"></span>
+      <span class="section-label">{{ section_name }}</span>
+      <span class="section-count">{{ articles|length }} article{{ 's' if articles|length != 1 }}</span>
+    </div>
+    <div class="card-grid">
+      {% for article in articles %}
+      <div class="card"
+           data-article-id="{{ article.url | replace('https://www.nytimes.com/', '') | replace('/', '-') }}"
+           data-title="{{ article.title | e }}"
+           data-summary="{{ article.summary | e }}"
+           data-url="{{ article.url }}"
+           data-date="{{ article.published[:10] }}"
+           data-section="{{ section_name }}">
+        <h3><a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
+        <p class="summary">{{ article.summary }}</p>
+        <div class="meta">
+          <span>{{ article.published[:10] }}</span>
+          <label class="read-toggle"><input type="checkbox" class="read-check"><span class="read-label">Read</span></label>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}
