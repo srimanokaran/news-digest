@@ -16,7 +16,8 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
 
 1. Install dependencies:
    ```bash
-   cd ~/programs/news-digest
+   git clone https://github.com/srimanokaran/news-digest.git
+   cd news-digest
    python3 -m venv .venv
    source .venv/bin/activate
    pip install requests python-dotenv
@@ -38,7 +39,7 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
 ## Usage
 
 ```bash
-~/programs/news-digest/.venv/bin/python ~/programs/news-digest/digest.py 2>&1
+python digest.py
 ```
 
 Output goes to `output/YYYY-MM-DD.md`. Run it again the next day and it diffs against the previous day's summaries to surface only new information.
@@ -47,7 +48,7 @@ Output goes to `output/YYYY-MM-DD.md`. Run it again the next day and it diffs ag
 
 ```bash
 pip install flask markdown
-~/programs/news-digest/.venv/bin/python ~/programs/news-digest/app.py
+python app.py
 # Open http://localhost:5050
 ```
 
@@ -58,7 +59,7 @@ Features: section filtering, read tracking, dark mode, article modal with full s
 Compare sequential vs parallel summarization:
 
 ```bash
-~/programs/news-digest/.venv/bin/python ~/programs/news-digest/benchmark.py 2>&1
+python benchmark.py
 ```
 
 ## Configuration
