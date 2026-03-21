@@ -92,6 +92,22 @@
   .arrow.disabled { opacity: 0.25; pointer-events: none; }
 
   .nav-right { display: flex; align-items: center; gap: 0.5rem; }
+  .search-wrap {
+    position: relative;
+  }
+  .search-input {
+    width: 180px; padding: 0.35rem 0.7rem 0.35rem 1.8rem;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-surface); color: var(--text-primary);
+    font-family: inherit; font-size: 0.8rem;
+    transition: all 0.15s ease; outline: none;
+  }
+  .search-input::placeholder { color: var(--text-tertiary); }
+  .search-input:focus { border-color: var(--accent); width: 220px; }
+  .search-icon {
+    position: absolute; left: 0.6rem; top: 50%; transform: translateY(-50%);
+    font-size: 0.75rem; color: var(--text-tertiary); pointer-events: none;
+  }
   .theme-toggle {
     display: inline-flex; align-items: center; justify-content: center;
     width: 32px; height: 32px; border-radius: 8px;
@@ -195,7 +211,7 @@
 
   /* ── Section groups inside grid ── */
   .section-group { margin-bottom: 1.75rem; }
-  .section-group.hidden { display: none; }
+  .section-group.hidden, .section-group.search-hidden-group { display: none; }
   .section-header {
     display: flex; align-items: center; gap: 0.6rem;
     margin-bottom: 0.85rem; padding-bottom: 0.5rem;
@@ -309,6 +325,7 @@
   .read-check:checked ~ .read-label { color: var(--accent); }
   .card.is-read { opacity: 0.55; }
   .card.is-read:hover { opacity: 0.8; }
+  .card.search-hidden { display: none; }
 
   /* ── Diff / What's New ── */
   .diff-content {
@@ -457,6 +474,10 @@
       </div>
     </div>
     <div class="nav-right">
+      <div class="search-wrap">
+        <span class="search-icon">&#9906;</span>
+        <input type="text" class="search-input" id="search-input" placeholder="Search articles...">
+      </div>
       <div class="nav-tabs">
         <a class="tab {{ 'active' if active_tab == 'digest' }}" href="/digest/{{ date }}">Digest</a>
         <a class="tab {{ 'active' if active_tab == 'diff' }}" href="/diff/{{ date }}">What's New</a>
@@ -625,6 +646,32 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
   });
+
+  // Search
+  var searchInput = document.getElementById('search-input');
+  if (searchInput) {
+    var debounceTimer;
+    searchInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(function() {
+        var query = searchInput.value.toLowerCase().trim();
+        document.querySelectorAll('.card[data-title]').forEach(function(card) {
+          if (!query) {
+            card.classList.remove('search-hidden');
+          } else {
+            var text = (card.dataset.title + ' ' + card.dataset.summary).toLowerCase();
+            card.classList.toggle('search-hidden', text.indexOf(query) === -1);
+          }
+        });
+        // Hide sections where all cards are hidden
+        document.querySelectorAll('.section-group').forEach(function(group) {
+          var cards = group.querySelectorAll('.card[data-title]');
+          var allHidden = Array.from(cards).every(function(c) { return c.classList.contains('search-hidden'); });
+          group.classList.toggle('search-hidden-group', allHidden && cards.length > 0);
+        });
+      }, 150);
+    });
+  }
 });
 </script>
 </body>
