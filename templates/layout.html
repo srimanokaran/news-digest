@@ -211,7 +211,7 @@
 
   /* ── Section groups inside grid ── */
   .section-group { margin-bottom: 1.75rem; }
-  .section-group.hidden, .section-group.search-hidden-group { display: none; }
+  .section-group.hidden, .section-group.search-hidden-group, .section-group.bookmark-hidden-group { display: none; }
   .section-header {
     display: flex; align-items: center; gap: 0.6rem;
     margin-bottom: 0.85rem; padding-bottom: 0.5rem;
@@ -323,9 +323,20 @@
   }
   .read-label { font-size: 0.68rem; color: var(--text-tertiary); transition: color 0.15s; }
   .read-check:checked ~ .read-label { color: var(--accent); }
+  .card .meta-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+  /* ── Bookmark ── */
+  .bookmark-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; color: var(--text-tertiary);
+    padding: 0; line-height: 1; transition: all 0.15s;
+  }
+  .bookmark-btn:hover { color: var(--accent); transform: scale(1.15); }
+  .card.is-bookmarked .bookmark-btn { color: var(--accent); }
+
   .card.is-read { opacity: 0.55; }
   .card.is-read:hover { opacity: 0.8; }
-  .card.search-hidden { display: none; }
+  .card.search-hidden, .card.bookmark-hidden { display: none; }
 
   /* ── Diff / What's New ── */
   .diff-content {
@@ -500,7 +511,10 @@
     <p class="modal-summary" id="modal-summary"></p>
     <div class="modal-footer">
       <span class="modal-date" id="modal-date"></span>
-      <a class="modal-link" id="modal-link" target="_blank" rel="noopener">Read article &#8599;</a>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button class="bookmark-btn modal-bookmark" id="modal-bookmark" aria-label="Bookmark" style="font-size:1.2rem">&#9734;</button>
+        <a class="modal-link" id="modal-link" target="_blank" rel="noopener">Read article &#8599;</a>
+      </div>
     </div>
   </div>
 </div>
@@ -530,8 +544,18 @@ document.addEventListener('DOMContentLoaded', function() {
       var section = this.dataset.section;
       pills.forEach(function(p) { p.classList.remove('active'); });
       this.classList.add('active');
+
+      // Handle bookmark filter
+      bookmarkFilterActive = (section === 'bookmarks');
+      applyBookmarkFilter();
+
+      // Handle section filter
       document.querySelectorAll('.section-group').forEach(function(g) {
-        g.classList.toggle('hidden', section !== 'all' && g.dataset.section !== section);
+        if (section === 'all' || section === 'bookmarks') {
+          g.classList.remove('hidden');
+        } else {
+          g.classList.toggle('hidden', g.dataset.section !== section);
+        }
       });
     });
   });
@@ -612,7 +636,10 @@ document.addEventListener('DOMContentLoaded', function() {
     sports: '#D08B5B', arts: '#C07ABF'
   };
 
+  var activeModalCard = null;
+
   function openModal(card) {
+    activeModalCard = card;
     var section = card.dataset.section || '';
     var color = SECTION_COLORS[section] || 'var(--text-tertiary)';
     document.getElementById('modal-section').innerHTML =
@@ -622,9 +649,21 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modal-date').textContent = card.dataset.date;
     var link = document.getElementById('modal-link');
     link.href = card.dataset.url;
+    var mbtn = document.getElementById('modal-bookmark');
+    mbtn.innerHTML = card.classList.contains('is-bookmarked') ? '&#9733;' : '&#9734;';
+    mbtn.style.color = card.classList.contains('is-bookmarked') ? 'var(--accent)' : '';
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
+
+  document.getElementById('modal-bookmark').addEventListener('click', function() {
+    if (!activeModalCard) return;
+    var btn = activeModalCard.querySelector('.bookmark-btn');
+    if (btn) btn.click();
+    var mbtn = document.getElementById('modal-bookmark');
+    mbtn.innerHTML = activeModalCard.classList.contains('is-bookmarked') ? '&#9733;' : '&#9734;';
+    mbtn.style.color = activeModalCard.classList.contains('is-bookmarked') ? 'var(--accent)' : '';
+  });
 
   function closeModal() {
     overlay.classList.remove('open');
@@ -646,6 +685,63 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && overlay.classList.contains('open')) closeModal();
   });
+
+  // Bookmarks — persist in localStorage
+  var BM_KEY = 'news-digest-bookmarks';
+  function getBookmarks() {
+    try { return JSON.parse(localStorage.getItem(BM_KEY)) || {}; } catch(e) { return {}; }
+  }
+  function saveBookmarks(map) { localStorage.setItem(BM_KEY, JSON.stringify(map)); }
+
+  var bmMap = getBookmarks();
+  var bmCountEl = document.querySelector('.bookmark-count');
+  var bookmarkFilterActive = false;
+
+  function updateBookmarkCount() {
+    var count = document.querySelectorAll('.card.is-bookmarked').length;
+    if (bmCountEl) bmCountEl.textContent = count;
+  }
+
+  document.querySelectorAll('.card[data-article-id]').forEach(function(card) {
+    var id = card.dataset.articleId;
+    var btn = card.querySelector('.bookmark-btn');
+    if (!btn) return;
+    if (bmMap[id]) {
+      card.classList.add('is-bookmarked');
+      btn.innerHTML = '&#9733;';
+    }
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var map = getBookmarks();
+      if (card.classList.contains('is-bookmarked')) {
+        card.classList.remove('is-bookmarked');
+        btn.innerHTML = '&#9734;';
+        delete map[id];
+      } else {
+        card.classList.add('is-bookmarked');
+        btn.innerHTML = '&#9733;';
+        map[id] = 1;
+      }
+      saveBookmarks(map);
+      updateBookmarkCount();
+      if (bookmarkFilterActive) applyBookmarkFilter();
+    });
+  });
+  updateBookmarkCount();
+
+  // Bookmark filter pill
+  function applyBookmarkFilter() {
+    document.querySelectorAll('.card[data-article-id]').forEach(function(card) {
+      card.classList.toggle('bookmark-hidden', bookmarkFilterActive && !card.classList.contains('is-bookmarked'));
+    });
+    document.querySelectorAll('.section-group').forEach(function(group) {
+      var cards = group.querySelectorAll('.card[data-article-id]');
+      var allHidden = Array.from(cards).every(function(c) {
+        return c.classList.contains('bookmark-hidden') || c.classList.contains('search-hidden');
+      });
+      group.classList.toggle('bookmark-hidden-group', allHidden && cards.length > 0);
+    });
+  }
 
   // Search
   var searchInput = document.getElementById('search-input');

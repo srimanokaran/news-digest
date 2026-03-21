@@ -2,6 +2,7 @@
 {% block content %}
 <div class="filter-bar">
   <span class="filter-pill active" data-section="all">All <span class="pill-count">{{ sections|sum(attribute='1', default=[])|length if false else total_count }}</span></span>
+  <span class="filter-pill" data-section="bookmarks">&#9733; Saved <span class="pill-count bookmark-count">0</span></span>
   {% for section_name, articles in sections %}
   <span class="filter-pill" data-section="{{ section_name }}">
     <span class="pill-dot"></span>
@@ -31,7 +32,10 @@
         <p class="summary">{{ article.summary }}</p>
         <div class="meta">
           <span>{{ article.published[:10] }}</span>
-          <label class="read-toggle"><input type="checkbox" class="read-check"><span class="read-label">Read</span></label>
+          <span class="meta-actions">
+            <button class="bookmark-btn" aria-label="Bookmark">&#9734;</button>
+            <label class="read-toggle"><input type="checkbox" class="read-check"><span class="read-label">Read</span></label>
+          </span>
         </div>
       </div>
       {% endfor %}
