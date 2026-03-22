@@ -1,11 +1,18 @@
 import json
 import os
-import re
+import time
 import markdown
 from flask import Flask, redirect, render_template, abort
 from markupsafe import Markup
+from digest import fetch_markets
 
 app = Flask(__name__)
+
+
+@app.template_filter("md")
+def md_filter(text):
+    """Render markdown string as HTML."""
+    return Markup(markdown.markdown(text))
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
@@ -22,12 +29,15 @@ def get_available_dates():
 
 
 def load_digest(date):
-    """Read and return parsed JSON from data/<date>.json."""
+    """Read and return (articles, markets) from data/<date>.json."""
     path = os.path.join(DATA_DIR, f"{date}.json")
     if not os.path.exists(path):
-        return None
+        return None, {}
     with open(path) as f:
-        return json.load(f)
+        data = json.load(f)
+    if isinstance(data, dict) and "articles" in data:
+        return data["articles"], data.get("markets", {})
+    return data, {}
 
 
 def get_prev_next(date):
@@ -41,20 +51,23 @@ def get_prev_next(date):
     return prev_date, next_date
 
 
-def load_diff_section(date):
-    """Extract the 'What's New Today' section from output/<date>.md and render as HTML."""
-    path = os.path.join(OUTPUT_DIR, f"{date}.md")
-    if not os.path.exists(path):
-        return None
-    with open(path) as f:
-        content = f.read()
-    # Look for a "What's New" style section header (match only within the header line)
-    pattern = r"(?:^|\n)(## [^\n]*(?:What.?s New|New Today|Diff)[^\n]*\n)(.*?)(?=\n## |\Z)"
-    match = re.search(pattern, content, re.DOTALL | re.IGNORECASE)
-    if not match:
-        return None
-    md_text = (match.group(1) + match.group(2)).strip()
-    return Markup(markdown.markdown(md_text))
+
+MARKET_CACHE = {"data": {}, "ts": 0}
+MARKET_CACHE_TTL = 300  # 5 minutes
+
+
+def get_live_markets():
+    """Fetch market data with a 5-minute cache."""
+    now = time.time()
+    if now - MARKET_CACHE["ts"] < MARKET_CACHE_TTL and MARKET_CACHE["data"]:
+        return MARKET_CACHE["data"]
+    try:
+        data = fetch_markets()
+        MARKET_CACHE["data"] = data
+        MARKET_CACHE["ts"] = now
+        return data
+    except Exception:
+        return MARKET_CACHE["data"]
 
 
 SECTION_ORDER = ["technology", "business", "world", "opinion", "science", "health", "sports", "arts"]
@@ -85,37 +98,25 @@ def index():
 
 @app.route("/digest/<date>")
 def digest(date):
-    articles = load_digest(date)
+    articles, _ = load_digest(date)
     if articles is None:
         abort(404)
     prev_date, next_date = get_prev_next(date)
     sections = group_by_section(articles)
     total_count = sum(len(arts) for _, arts in sections)
+    markets = get_live_markets()
+    # Collect unique tags across all articles
+    all_tags = sorted({tag for a in articles for tag in a.get("tags", [])})
     return render_template(
         "digest.html",
         date=date,
         sections=sections,
+        all_tags=all_tags,
+        markets=markets,
         total_count=total_count,
         prev_date=prev_date,
         next_date=next_date,
         active_tab="digest",
-    )
-
-
-@app.route("/diff/<date>")
-def diff(date):
-    dates = get_available_dates()
-    if date not in dates:
-        abort(404)
-    prev_date, next_date = get_prev_next(date)
-    diff_content = load_diff_section(date)
-    return render_template(
-        "diff.html",
-        date=date,
-        diff_content=diff_content,
-        prev_date=prev_date,
-        next_date=next_date,
-        active_tab="diff",
     )
 
 

@@ -25,13 +25,18 @@ def main():
         sys.exit(1)
 
     with open(data_path) as f:
-        summaries = json.load(f)
+        data = json.load(f)
 
-    summaries_by_section = {}
-    for s in summaries:
-        summaries_by_section.setdefault(s["section"], []).append(s)
+    if isinstance(data, dict) and "articles" in data:
+        articles = data["articles"]
+    else:
+        articles = data
 
-    html = build_html(summaries_by_section, None, date_str)
+    articles_by_section = {}
+    for a in articles:
+        articles_by_section.setdefault(a["section"], []).append(a)
+
+    html = build_html(articles_by_section, date_str)
     send_digest(html, date_str)
 
 

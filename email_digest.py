@@ -32,12 +32,14 @@ def _friendly_date(date_str):
     return f"{day}{suffix} {dt.strftime('%B')}"
 
 
-def build_html(summaries_by_section, diff_text, date_str):
+def build_html(articles_by_section, date_str):
     """Build a styled HTML email body matching the web UI palette."""
     display_date = _friendly_date(date_str)
     articles_html = ""
-    for section, articles in summaries_by_section.items():
+    for section, articles in articles_by_section.items():
         color = SECTION_COLORS.get(section, "#C5623A")
+        # Sort by priority within section
+        sorted_articles = sorted(articles, key=lambda a: a.get("priority", 3), reverse=True)
         articles_html += (
             f'<tr><td style="padding:24px 0 8px 0;">'
             f'<span style="display:inline-block;width:8px;height:8px;'
@@ -49,16 +51,22 @@ def build_html(summaries_by_section, diff_text, date_str):
             f'{len(articles)} articles</span>'
             f'</td></tr>'
         )
-        top = articles[:MAX_PER_SECTION]
-        rest = articles[MAX_PER_SECTION:]
+        top = sorted_articles[:MAX_PER_SECTION]
+        rest = sorted_articles[MAX_PER_SECTION:]
         for a in top:
+            tags = a.get("tags", [])
+            tag_html = ""
+            if tags:
+                tag_html = '<br>' + ' '.join(
+                    f'<span style="display:inline-block;font-size:10px;color:#6B6560;'
+                    f'background:#F5F0E8;border-radius:4px;padding:1px 6px;margin-right:4px;">'
+                    f'{t}</span>' for t in tags
+                )
             articles_html += (
-                f'<tr><td style="padding:8px 0 8px 16px;">'
-                f'<a href="{a["url"]}" style="color:#2D2B28;font-size:15px;'
+                f'<tr><td style="padding:4px 0 4px 16px;">'
+                f'<a href="{a["url"]}" style="color:#2D2B28;font-size:14px;'
                 f'font-weight:600;text-decoration:none;">{a["title"]} &#8599;</a>'
-                f'<br>'
-                f'<span style="color:#6B6560;font-size:13px;line-height:1.6;">'
-                f'{a["summary"]}</span>'
+                f'{tag_html}'
                 f'</td></tr>'
             )
         if rest:
@@ -74,19 +82,6 @@ def build_html(summaries_by_section, diff_text, date_str):
                     f'text-decoration:none;">{a["title"]} &#8599;</a>'
                     f'</td></tr>'
                 )
-
-    diff_section = ""
-    if diff_text:
-        diff_lines = diff_text.replace("\n", "<br>")
-        diff_section = (
-            f'<tr><td style="padding:16px 20px;background:#F5E6DE;'
-            f'border-radius:8px;margin-bottom:16px;">'
-            f'<strong style="color:#A14520;font-size:14px;">What\'s New</strong>'
-            f'<br><span style="color:#6B6560;font-size:13px;line-height:1.7;">'
-            f'{diff_lines}</span>'
-            f'</td></tr>'
-            f'<tr><td style="padding:8px 0;"></td></tr>'
-        )
 
     return f"""\
 <html>
@@ -105,7 +100,6 @@ def build_html(summaries_by_section, diff_text, date_str):
   </td></tr>
   <tr><td style="padding:0 28px;">
     <table width="100%" cellpadding="0" cellspacing="0">
-      {diff_section}
       {articles_html}
     </table>
   </td></tr>

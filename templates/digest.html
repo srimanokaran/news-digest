@@ -1,5 +1,17 @@
 {% extends "layout.html" %}
 {% block content %}
+{% if markets and markets.indices %}
+<div class="market-bar">
+  {% for name, data in markets.indices.items() %}
+  <span class="market-item {{ 'positive' if data.change_pct >= 0 else 'negative' }}">
+    {{ name }}
+    {{ '\u25b2' if data.change_pct >= 0 else '\u25bc' }}
+    {{ '%+.2f'|format(data.change_pct) }}%
+  </span>
+  {% if not loop.last %}<span class="market-sep">|</span>{% endif %}
+  {% endfor %}
+</div>
+{% endif %}
 <div class="filter-bar">
   <span class="filter-pill active" data-section="all">All <span class="pill-count">{{ sections|sum(attribute='1', default=[])|length if false else total_count }}</span></span>
   <span class="filter-pill" data-section="bookmarks">&#9733; Saved <span class="pill-count bookmark-count">0</span></span>
@@ -12,24 +24,49 @@
   {% endfor %}
 </div>
 
+{% if all_tags %}
+<div class="tag-filter-bar">
+  {% for tag in all_tags %}
+  <span class="tag-filter-pill" data-tag="{{ tag }}">{{ tag }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% for section_name, articles in sections %}
   <div class="section-group" data-section="{{ section_name }}">
     <div class="section-header {{ section_name }}">
       <span class="section-dot"></span>
       <span class="section-label">{{ section_name }}</span>
       <span class="section-count">{{ articles|length }} article{{ 's' if articles|length != 1 }}</span>
+      {% if markets and markets.sectors and markets.sectors.get(section_name) %}
+      {% set etf = markets.sectors[section_name] %}
+      <span class="section-etf {{ 'positive' if etf.change_pct >= 0 else 'negative' }}">
+        {{ etf.ticker }}
+        {{ '\u25b2' if etf.change_pct >= 0 else '\u25bc' }}
+        {{ '%+.1f'|format(etf.change_pct) }}%
+      </span>
+      {% endif %}
     </div>
     <div class="card-grid">
       {% for article in articles %}
-      <div class="card"
+      <div class="card{% if article.priority|default(3) >= 4 %} high-priority{% endif %}"
            data-article-id="{{ article.url | replace('https://www.nytimes.com/', '') | replace('/', '-') }}"
            data-title="{{ article.title | e }}"
-           data-summary="{{ article.summary | e }}"
+           data-summary="{{ article.abstract | e }}"
            data-url="{{ article.url }}"
            data-date="{{ article.published[:10] }}"
-           data-section="{{ section_name }}">
+           data-section="{{ section_name }}"
+           data-tags="{{ article.tags|default([])|join(',') }}"
+           data-priority="{{ article.priority|default(3) }}">
         <h3><a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
-        <p class="summary">{{ article.summary }}</p>
+        <p class="summary">{{ article.abstract }}</p>
+        {% if article.tags|default([]) %}
+        <div class="card-tags">
+          {% for tag in article.tags %}
+          <span class="tag-chip">{{ tag }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
         <div class="meta">
           <span>{{ article.published[:10] }}</span>
           <span class="meta-actions">
