@@ -54,6 +54,7 @@ def build_html(articles_by_section, date_str):
         top = sorted_articles[:MAX_PER_SECTION]
         rest = sorted_articles[MAX_PER_SECTION:]
         for a in top:
+            priority = a.get("priority", 3)
             tags = a.get("tags", [])
             tag_html = ""
             if tags:
@@ -62,10 +63,17 @@ def build_html(articles_by_section, date_str):
                     f'background:#F5F0E8;border-radius:4px;padding:1px 6px;margin-right:4px;">'
                     f'{t}</span>' for t in tags
                 )
+            border = 'border-left:3px solid #C5623A;padding-left:13px;' if priority >= 4 else ''
+            abstract = a.get("abstract", "")
+            abstract_html = (
+                f'<br><span style="font-size:13px;color:#6B6560;line-height:1.6;">'
+                f'{abstract}</span>' if abstract else ''
+            )
             articles_html += (
-                f'<tr><td style="padding:4px 0 4px 16px;">'
+                f'<tr><td style="padding:6px 0 6px 16px;{border}">'
                 f'<a href="{a["url"]}" style="color:#2D2B28;font-size:14px;'
                 f'font-weight:600;text-decoration:none;">{a["title"]} &#8599;</a>'
+                f'{abstract_html}'
                 f'{tag_html}'
                 f'</td></tr>'
             )
