@@ -1,6 +1,6 @@
 # News Digest
 
-A local news digest tool that fetches NYT articles, summarizes them with Ollama (Llama 3), and shows only new information each day — a "news diff" for personal use. Includes a web UI for browsing digests.
+A local news digest tool that fetches NYT articles, tags and priority-scores them with Ollama (Llama 3), and presents them in a filterable web UI — sorted by significance, not just recency. Includes market data, tag-based filtering, and email delivery.
 
 ![Light mode](screenshots/digest-light.png)
 
@@ -20,7 +20,7 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
    cd news-digest
    python3 -m venv .venv
    source .venv/bin/activate
-   pip install requests python-dotenv
+   pip install requests python-dotenv yfinance
    ```
 
 2. Add your NYT API key:
@@ -32,7 +32,6 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
 3. Install and run Ollama with Llama 3:
    ```bash
    ollama pull llama3
-   export OLLAMA_NUM_PARALLEL=4
    ollama serve
    ```
 
@@ -42,7 +41,7 @@ A local news digest tool that fetches NYT articles, summarizes them with Ollama 
 python digest.py
 ```
 
-Output goes to `output/YYYY-MM-DD.md`. Run it again the next day and it diffs against the previous day's summaries to surface only new information.
+Each article is tagged (from a fixed set of 15 topics like AI, Markets, Conflict) and priority-scored 1-5 by Ollama. Articles are deduplicated against the previous day. Output goes to `output/YYYY-MM-DD.md` and `data/YYYY-MM-DD.json`.
 
 ### Web UI
 
@@ -52,14 +51,16 @@ python app.py
 # Open http://localhost:5050
 ```
 
-Features: section filtering, read tracking, dark mode, article modal with full summaries.
+Features: section filtering, tag filtering, priority sorting (P4-5 get accent borders), read tracking, bookmarks, search, dark mode, article modal.
 
-## Benchmark
+### Email Digest
 
-Compare sequential vs parallel summarization:
-
-```bash
-python benchmark.py
+Set these in `.env` to receive a daily email:
+```
+EMAIL_ENABLED=true
+GMAIL_ADDRESS=you@gmail.com
+GMAIL_APP_PASSWORD=your-app-password
+DIGEST_EMAIL_TO=recipient@example.com
 ```
 
 ## Configuration
@@ -67,4 +68,6 @@ python benchmark.py
 Edit `config.py` to change:
 - Sections to follow (default: technology, business, world, opinion)
 - Keywords to filter articles per section
-- Ollama model and parallel workers
+- Ollama model (`OLLAMA_MODEL`)
+- Allowed tags (`ALLOWED_TAGS`) — the fixed set of tags the model can assign
+- Market indices and sector ETFs
