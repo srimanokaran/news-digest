@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -20,8 +21,20 @@ SECTION_COLORS = {
 MAX_PER_SECTION = 5
 
 
+def _friendly_date(date_str):
+    """Convert '2026-03-21' to '21st March'."""
+    dt = datetime.strptime(date_str, "%Y-%m-%d")
+    day = dt.day
+    if 11 <= day <= 13:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix} {dt.strftime('%B')}"
+
+
 def build_html(summaries_by_section, diff_text, date_str):
     """Build a styled HTML email body matching the web UI palette."""
+    display_date = _friendly_date(date_str)
     articles_html = ""
     for section, articles in summaries_by_section.items():
         color = SECTION_COLORS.get(section, "#C5623A")
@@ -84,7 +97,7 @@ def build_html(summaries_by_section, diff_text, date_str):
        style="background:#FFFFFF;border-radius:12px;border:1px solid #E8E0D4;">
   <tr><td style="padding:28px 28px 12px 28px;">
     <h1 style="margin:0;font-size:22px;color:#2D2B28;font-weight:600;">
-      News Digest &mdash; {date_str}
+      News Digest &mdash; {display_date}
     </h1>
   </td></tr>
   <tr><td style="padding:0 28px;">
@@ -111,7 +124,7 @@ def build_html(summaries_by_section, diff_text, date_str):
 def send_digest(html, date_str):
     """Send the HTML digest email via Gmail SMTP."""
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"News Digest — {date_str}"
+    msg["Subject"] = f"News Digest — {_friendly_date(date_str)}"
     msg["From"] = GMAIL_ADDRESS
     msg["To"] = DIGEST_EMAIL_TO
     msg.attach(MIMEText(html, "html"))

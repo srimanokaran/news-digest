@@ -92,6 +92,7 @@ def summarize(article):
         raise
 
 
+
 def load_previous_day(today):
     """Load yesterday's summaries if they exist."""
     yesterday = today - timedelta(days=1)
@@ -174,6 +175,16 @@ def main():
         logging.error("No articles found.")
         sys.exit(1)
 
+    # Deduplicate against yesterday
+    yesterday_data = load_previous_day(today)
+    if yesterday_data:
+        yesterday_urls = {a["url"] for a in yesterday_data}
+        before = len(all_articles)
+        all_articles = [a for a in all_articles if a["url"] not in yesterday_urls]
+        dupes = before - len(all_articles)
+        if dupes:
+            logging.info(f"Removed {dupes} articles already in yesterday's digest")
+
     # Step B: Summarize
     total = len(all_articles)
     summaries = []
@@ -209,7 +220,6 @@ def main():
                 continue
 
     # Step C: Diff against yesterday
-    yesterday_data = load_previous_day(today)
     diff_text = None
     if yesterday_data:
         logging.info("Diffing against yesterday...")
