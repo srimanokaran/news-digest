@@ -1,6 +1,8 @@
 import json
 import os
 import time
+from datetime import datetime
+
 import markdown
 from flask import Flask, redirect, render_template, abort
 from markupsafe import Markup
@@ -13,6 +15,16 @@ app = Flask(__name__)
 def md_filter(text):
     """Render markdown string as HTML."""
     return Markup(markdown.markdown(text))
+
+
+@app.template_filter("friendly_date")
+def friendly_date_filter(text):
+    """Convert '2026-03-25T...' or '2026-03-25' to '25 March 2026'."""
+    try:
+        dt = datetime.fromisoformat(text[:10])
+        return dt.strftime("%-d %B %Y")
+    except (ValueError, TypeError):
+        return text
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")

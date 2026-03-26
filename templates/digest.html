@@ -77,7 +77,7 @@
         </div>
         {% endif %}
         <div class="meta">
-          <span>{{ article.published[:10] }}</span>
+          <span>{{ article.published | friendly_date }}</span>
           {% if article.source|default('') %}
           <span class="source-badge">{{ article.source.replace('rss:', '') | replace('top_stories', 'NYT') | replace('search', 'NYT Search') }}</span>
           {% endif %}
