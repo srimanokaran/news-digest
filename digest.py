@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 
@@ -14,14 +15,12 @@ from config import (
     DATA_DIR,
     EMAIL_ENABLED,
     FRESHNESS_CUTOFF_HOURS,
-    MARKET_INDICES,
     NYT_API_KEY,
     OLLAMA_MODEL,
     OLLAMA_URL,
     OUTPUT_DIR,
     SEARCH_PAGES,
     SEARCH_QUERIES,
-    SECTION_ETFS,
     SECTION_KEYWORDS,
     SECTIONS,
 )
@@ -259,52 +258,40 @@ def write_markdown(today, articles_by_section):
     return path
 
 
-def fetch_markets():
-    """Fetch daily % change for market indices and sector ETFs."""
-    import yfinance as yf
+from markets import fetch_markets  # re-export for backwards compat
 
-    results = {"indices": {}, "sectors": {}}
 
-    all_tickers = {**{name: ticker for name, ticker in MARKET_INDICES.items()},
-                   **{section: ticker for section, ticker in SECTION_ETFS.items()}}
-
-    for name, ticker in all_tickers.items():
-        try:
-            hist = yf.Ticker(ticker).history(period="2d")
-            if len(hist) >= 2:
-                prev_close = float(hist["Close"].iloc[-2])
-                last_close = float(hist["Close"].iloc[-1])
-                change_pct = round((last_close - prev_close) / prev_close * 100, 2)
-                entry = {
-                    "ticker": ticker,
-                    "close": round(last_close, 2),
-                    "change_pct": change_pct,
-                }
-                if name in MARKET_INDICES:
-                    results["indices"][name] = entry
-                else:
-                    results["sectors"][name] = entry
-        except Exception as e:
-            logging.error(f"Failed to fetch market data for {name} ({ticker}): {e}")
-
-    return results
+def _fetch_top_stories(section):
+    """Fetch top stories for a section, tagging with source."""
+    articles = fetch_articles(section)
+    for a in articles:
+        a["source"] = "top_stories"
+    logging.info(f"  {len(articles)} articles from top stories/{section}")
+    return articles
 
 
 def _fetch_all_articles(today):
-    """Fetch articles from all sources: NYT top stories, article search, RSS."""
+    """Fetch articles from all sources in parallel."""
     all_articles = []
+    futures = {}
 
-    for section in SECTIONS:
-        logging.info(f"Fetching top stories: {section}...")
-        try:
-            articles = fetch_articles(section)
-            for a in articles:
-                a["source"] = "top_stories"
-            logging.info(f"  {len(articles)} articles from top stories/{section}")
-            all_articles.extend(articles)
-        except Exception as e:
-            logging.error(f"Failed to fetch {section}: {e}")
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        # NYT top stories (parallel across sections)
+        for section in SECTIONS:
+            futures[pool.submit(_fetch_top_stories, section)] = f"top_stories/{section}"
 
+        # RSS feeds (single task, internally parallel via feedparser)
+        futures[pool.submit(fetch_rss_articles)] = "rss"
+
+        for future in as_completed(futures):
+            label = futures[future]
+            try:
+                result = future.result()
+                all_articles.extend(result)
+            except Exception as e:
+                logging.error(f"Failed to fetch {label}: {e}")
+
+    # Article Search runs serially (NYT rate limit: 5 req/min)
     for section in SECTIONS:
         logging.info(f"Fetching article search: {section}...")
         try:
@@ -313,14 +300,6 @@ def _fetch_all_articles(today):
             all_articles.extend(search_arts)
         except Exception as e:
             logging.error(f"Failed to fetch search articles for {section}: {e}")
-
-    logging.info("Fetching RSS feeds...")
-    try:
-        rss_articles = fetch_rss_articles()
-        logging.info(f"Got {len(rss_articles)} articles from RSS feeds")
-        all_articles.extend(rss_articles)
-    except Exception as e:
-        logging.error(f"Failed to fetch RSS articles: {e}")
 
     return all_articles
 

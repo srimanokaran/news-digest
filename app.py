@@ -8,7 +8,7 @@ import markdown
 from flask import Flask, redirect, render_template, abort
 from markupsafe import Markup
 from config import DATA_DIR, SECTION_ORDER
-from digest import fetch_markets
+from markets import fetch_markets
 
 app = Flask(__name__)
 
@@ -24,7 +24,7 @@ def friendly_date_filter(text):
     """Convert '2026-03-25T...' or '2026-03-25' to '25 March 2026'."""
     try:
         dt = datetime.fromisoformat(text[:10])
-        return dt.strftime("%-d %B %Y")
+        return f"{dt.day} {dt.strftime('%B %Y')}"
     except (ValueError, TypeError):
         return text
 
