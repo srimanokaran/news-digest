@@ -3,6 +3,7 @@ import smtplib
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 
 from config import GMAIL_ADDRESS, GMAIL_APP_PASSWORD, DIGEST_EMAIL_TO
 
@@ -64,9 +65,9 @@ def build_html(articles_by_section, date_str):
                     f'{t}</span>' for t in tags
                 )
             border = 'border-left:3px solid #C5623A;padding-left:13px;' if priority >= 4 else ''
-            abstract = a.get("abstract", "")
+            abstract = escape(a.get("abstract", ""))
             source_raw = a.get("source", "")
-            source_label = source_raw.replace("rss:", "").replace("top_stories", "NYT").replace("search", "NYT Search")
+            source_label = escape(source_raw.replace("rss:", "").replace("top_stories", "NYT").replace("search", "NYT Search"))
             source_html = (
                 f' <span style="display:inline-block;font-size:9px;font-weight:700;'
                 f'color:#9B9490;background:#F5F0E8;border:1px solid #E8E0D4;'
@@ -81,7 +82,7 @@ def build_html(articles_by_section, date_str):
             articles_html += (
                 f'<tr><td style="padding:6px 0 6px 16px;{border}">'
                 f'<a href="{a["url"]}" style="color:#2D2B28;font-size:14px;'
-                f'font-weight:600;text-decoration:none;">{a["title"]} &#8599;</a>'
+                f'font-weight:600;text-decoration:none;">{escape(a["title"])} &#8599;</a>'
                 f'{source_html}'
                 f'{abstract_html}'
                 f'{tag_html}'
@@ -97,7 +98,7 @@ def build_html(articles_by_section, date_str):
                 articles_html += (
                     f'<tr><td style="padding:3px 0 3px 24px;">'
                     f'<a href="{a["url"]}" style="color:#6B6560;font-size:13px;'
-                    f'text-decoration:none;">{a["title"]} &#8599;</a>'
+                    f'text-decoration:none;">{escape(a["title"])} &#8599;</a>'
                     f'</td></tr>'
                 )
 

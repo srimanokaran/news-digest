@@ -1,11 +1,13 @@
 import json
 import os
+import re
 import time
 from datetime import datetime
 
 import markdown
 from flask import Flask, redirect, render_template, abort
 from markupsafe import Markup
+from config import DATA_DIR, SECTION_ORDER
 from digest import fetch_markets
 
 app = Flask(__name__)
@@ -26,8 +28,6 @@ def friendly_date_filter(text):
     except (ValueError, TypeError):
         return text
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 
 def get_available_dates():
@@ -82,7 +82,6 @@ def get_live_markets():
         return MARKET_CACHE["data"]
 
 
-SECTION_ORDER = ["technology", "business", "world", "opinion", "science", "health", "sports", "arts"]
 
 
 def group_by_section(articles):
@@ -110,6 +109,8 @@ def index():
 
 @app.route("/digest/<date>")
 def digest(date):
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        abort(404)
     articles, _ = load_digest(date)
     if articles is None:
         abort(404)

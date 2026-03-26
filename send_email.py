@@ -11,9 +11,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stderr)],
 )
 
+from config import DATA_DIR
 from email_digest import build_html, send_digest
-
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 
 
 def main():

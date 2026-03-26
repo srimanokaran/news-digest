@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 import time
 from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
@@ -10,11 +11,14 @@ import requests
 
 from config import (
     ALLOWED_TAGS,
+    DATA_DIR,
     EMAIL_ENABLED,
+    FRESHNESS_CUTOFF_HOURS,
     MARKET_INDICES,
     NYT_API_KEY,
     OLLAMA_MODEL,
     OLLAMA_URL,
+    OUTPUT_DIR,
     SEARCH_PAGES,
     SEARCH_QUERIES,
     SECTION_ETFS,
@@ -30,8 +34,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stderr)],
 )
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
 
 
 def fetch_articles(section):
@@ -196,6 +198,7 @@ def score_articles(articles):
         else:
             a.setdefault("tags", [])
             a.setdefault("priority", 3)
+            a["unscored"] = True
     logging.info(f"  Scored {applied}/{len(articles)} articles")
 
 
@@ -213,7 +216,7 @@ def load_previous_day(today):
     return {"articles": data}
 
 
-def dedupe_fuzzy(articles, threshold=0.7):
+def dedupe_fuzzy(articles, threshold=0.8):
     """Remove near-duplicate articles by fuzzy title matching.
 
     When two articles have similar titles, keep the one that appeared first
@@ -287,24 +290,10 @@ def fetch_markets():
     return results
 
 
-def main():
-    if not NYT_API_KEY or NYT_API_KEY == "your-key-here":
-        logging.error("Set your NYT_API_KEY in .env first.")
-        sys.exit(1)
-
-    today = datetime.now()
-    date_str = today.strftime("%Y-%m-%d")
-
-    # Step A: Fetch articles + market data
-    logging.info("Fetching market data...")
-    try:
-        markets = fetch_markets()
-        logging.info(f"Got {len(markets['indices'])} indices, {len(markets['sectors'])} sector ETFs")
-    except Exception as e:
-        logging.error(f"Failed to fetch market data: {e}")
-        markets = {}
-
+def _fetch_all_articles(today):
+    """Fetch articles from all sources: NYT top stories, article search, RSS."""
     all_articles = []
+
     for section in SECTIONS:
         logging.info(f"Fetching top stories: {section}...")
         try:
@@ -315,20 +304,16 @@ def main():
             all_articles.extend(articles)
         except Exception as e:
             logging.error(f"Failed to fetch {section}: {e}")
-            continue
 
-    # Fetch from Article Search API
     for section in SECTIONS:
         logging.info(f"Fetching article search: {section}...")
         try:
-            search_articles = fetch_search_articles(section, today)
-            logging.info(f"  {len(search_articles)} articles from search/{section}")
-            all_articles.extend(search_articles)
+            search_arts = fetch_search_articles(section, today)
+            logging.info(f"  {len(search_arts)} articles from search/{section}")
+            all_articles.extend(search_arts)
         except Exception as e:
             logging.error(f"Failed to fetch search articles for {section}: {e}")
-            continue
 
-    # Fetch from RSS feeds
     logging.info("Fetching RSS feeds...")
     try:
         rss_articles = fetch_rss_articles()
@@ -337,74 +322,109 @@ def main():
     except Exception as e:
         logging.error(f"Failed to fetch RSS articles: {e}")
 
-    # Filter out stale articles (older than 36 hours)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
-    before_freshness = len(all_articles)
-    fresh_articles = []
+    return all_articles
+
+
+def _filter_articles(all_articles, today):
+    """Apply freshness filter, URL dedup, fuzzy dedup, and yesterday dedup."""
+    # Freshness
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=FRESHNESS_CUTOFF_HOURS)
+    fresh = []
     for a in all_articles:
         pub = a.get("published", "")
         if not pub:
-            fresh_articles.append(a)
+            fresh.append(a)
             continue
         try:
             dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=timezone.utc)
             if dt >= cutoff:
-                fresh_articles.append(a)
+                fresh.append(a)
         except (ValueError, TypeError):
-            fresh_articles.append(a)
-    stale = before_freshness - len(fresh_articles)
+            fresh.append(a)
+    stale = len(all_articles) - len(fresh)
     if stale:
-        logging.info(f"Filtered {stale} stale articles (older than 36h)")
-    all_articles = fresh_articles
+        logging.info(f"Filtered {stale} stale articles (older than {FRESHNESS_CUTOFF_HOURS}h)")
 
-    # Dedup by URL within today's articles
+    # URL dedup
     seen_urls = set()
-    unique_articles = []
-    for a in all_articles:
+    unique = []
+    for a in fresh:
         if a["url"] not in seen_urls:
             seen_urls.add(a["url"])
-            unique_articles.append(a)
-    dupes_today = len(all_articles) - len(unique_articles)
-    if dupes_today:
-        logging.info(f"Removed {dupes_today} duplicate articles across sources")
-    all_articles = unique_articles
+            unique.append(a)
+    url_dupes = len(fresh) - len(unique)
+    if url_dupes:
+        logging.info(f"Removed {url_dupes} duplicate articles across sources")
 
-    if not all_articles:
+    if not unique:
         logging.error("No articles found.")
         sys.exit(1)
 
-    # Fuzzy dedup across sources (same story from different outlets)
-    all_articles = dedupe_fuzzy(all_articles)
+    # Fuzzy dedup
+    unique = dedupe_fuzzy(unique)
 
-    # Deduplicate against yesterday
+    # Yesterday dedup
     yesterday_data = load_previous_day(today)
     if yesterday_data:
         yesterday_urls = {a["url"] for a in yesterday_data["articles"]}
-        before = len(all_articles)
-        all_articles = [a for a in all_articles if a["url"] not in yesterday_urls]
-        dupes = before - len(all_articles)
+        before = len(unique)
+        unique = [a for a in unique if a["url"] not in yesterday_urls]
+        dupes = before - len(unique)
         if dupes:
             logging.info(f"Removed {dupes} articles already in yesterday's digest")
 
-    # Step B: Score articles with tags + priority
+    return unique
+
+
+def _save_json(data, path):
+    """Write JSON atomically: write to temp file, then rename."""
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
+def main():
+    if not NYT_API_KEY or NYT_API_KEY == "your-key-here":
+        logging.error("Set your NYT_API_KEY in .env first.")
+        sys.exit(1)
+
+    today = datetime.now()
+    date_str = today.strftime("%Y-%m-%d")
+
+    # Fetch
+    logging.info("Fetching market data...")
+    try:
+        markets = fetch_markets()
+        logging.info(f"Got {len(markets['indices'])} indices, {len(markets['sectors'])} sector ETFs")
+    except Exception as e:
+        logging.error(f"Failed to fetch market data: {e}")
+        markets = {}
+
+    all_articles = _fetch_all_articles(today)
+
+    # Filter
+    all_articles = _filter_articles(all_articles, today)
+
+    # Score
     logging.info(f"Scoring {len(all_articles)} articles with Ollama...")
     score_articles(all_articles)
-
-    # Sort by priority descending
     all_articles.sort(key=lambda a: a.get("priority", 3), reverse=True)
 
-    # Group by section
+    # Group + output
     articles_by_section = {}
     for a in all_articles:
         articles_by_section.setdefault(a["section"], []).append(a)
 
-    # Step C: Output
     path = write_markdown(today, articles_by_section)
     logging.info(f"Digest written to {path}")
 
-    # Step D: Email digest
     if EMAIL_ENABLED:
         try:
             html = build_html(articles_by_section, date_str)
@@ -412,13 +432,12 @@ def main():
         except Exception as e:
             logging.error(f"Failed to send digest email: {e}")
 
-    # Save today's data for tomorrow's dedup
+    # Save (atomic write)
+    payload = {"articles": all_articles}
+    if markets:
+        payload["markets"] = markets
     data_path = os.path.join(DATA_DIR, f"{date_str}.json")
-    with open(data_path, "w") as f:
-        payload = {"articles": all_articles}
-        if markets:
-            payload["markets"] = markets
-        json.dump(payload, f, indent=2)
+    _save_json(payload, data_path)
     logging.info(f"Data saved to {data_path}")
 
 

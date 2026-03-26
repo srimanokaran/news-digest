@@ -3,6 +3,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+
+SECTION_ORDER = ["technology", "business", "world", "opinion", "science", "health", "sports", "arts"]
+
+FRESHNESS_CUTOFF_HOURS = 36
+
 NYT_API_KEY = os.getenv("NYT_API_KEY")
 
 SECTIONS = ["technology", "business", "world", "opinion"]
