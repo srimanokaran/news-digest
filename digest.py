@@ -3,7 +3,8 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 
 import requests
 
@@ -21,6 +22,7 @@ from config import (
     SECTIONS,
 )
 from email_digest import build_html, send_digest
+from rss import fetch_rss_articles
 
 logging.basicConfig(
     level=logging.INFO,
@@ -211,6 +213,30 @@ def load_previous_day(today):
     return {"articles": data}
 
 
+def dedupe_fuzzy(articles, threshold=0.7):
+    """Remove near-duplicate articles by fuzzy title matching.
+
+    When two articles have similar titles, keep the one that appeared first
+    (earlier in the list = higher-priority source).
+    """
+    keep = []
+    kept_titles = []
+    for a in articles:
+        title = a["title"].lower().strip()
+        is_dupe = False
+        for kt in kept_titles:
+            if SequenceMatcher(None, title, kt).ratio() >= threshold:
+                is_dupe = True
+                break
+        if not is_dupe:
+            keep.append(a)
+            kept_titles.append(title)
+    removed = len(articles) - len(keep)
+    if removed:
+        logging.info(f"Fuzzy dedup removed {removed} near-duplicate articles")
+    return keep
+
+
 def write_markdown(today, articles_by_section):
     """Write the daily digest as a markdown file."""
     date_str = today.strftime("%Y-%m-%d")
@@ -302,6 +328,37 @@ def main():
             logging.error(f"Failed to fetch search articles for {section}: {e}")
             continue
 
+    # Fetch from RSS feeds
+    logging.info("Fetching RSS feeds...")
+    try:
+        rss_articles = fetch_rss_articles()
+        logging.info(f"Got {len(rss_articles)} articles from RSS feeds")
+        all_articles.extend(rss_articles)
+    except Exception as e:
+        logging.error(f"Failed to fetch RSS articles: {e}")
+
+    # Filter out stale articles (older than 36 hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+    before_freshness = len(all_articles)
+    fresh_articles = []
+    for a in all_articles:
+        pub = a.get("published", "")
+        if not pub:
+            fresh_articles.append(a)
+            continue
+        try:
+            dt = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            if dt >= cutoff:
+                fresh_articles.append(a)
+        except (ValueError, TypeError):
+            fresh_articles.append(a)
+    stale = before_freshness - len(fresh_articles)
+    if stale:
+        logging.info(f"Filtered {stale} stale articles (older than 36h)")
+    all_articles = fresh_articles
+
     # Dedup by URL within today's articles
     seen_urls = set()
     unique_articles = []
@@ -317,6 +374,9 @@ def main():
     if not all_articles:
         logging.error("No articles found.")
         sys.exit(1)
+
+    # Fuzzy dedup across sources (same story from different outlets)
+    all_articles = dedupe_fuzzy(all_articles)
 
     # Deduplicate against yesterday
     yesterday_data = load_previous_day(today)

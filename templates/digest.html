@@ -32,6 +32,14 @@
 </div>
 {% endif %}
 
+{% if all_sources %}
+<div class="tag-filter-bar">
+  {% for source in all_sources %}
+  <span class="source-filter-pill" data-source="{{ source }}">{{ source }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% for section_name, articles in sections %}
   <div class="section-group" data-section="{{ section_name }}">
     <div class="section-header {{ section_name }}">
@@ -57,6 +65,7 @@
            data-date="{{ article.published[:10] }}"
            data-section="{{ section_name }}"
            data-tags="{{ article.tags|default([])|join(',') }}"
+           data-source="{{ article.source|default('')|replace('rss:', '')|replace('top_stories', 'NYT')|replace('search', 'NYT Search') }}"
            data-priority="{{ article.priority|default(3) }}">
         <h3><a href="{{ article.url }}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
         <p class="summary">{{ article.abstract }}</p>
@@ -69,6 +78,9 @@
         {% endif %}
         <div class="meta">
           <span>{{ article.published[:10] }}</span>
+          {% if article.source|default('') %}
+          <span class="source-badge">{{ article.source.replace('rss:', '') | replace('top_stories', 'NYT') | replace('search', 'NYT Search') }}</span>
+          {% endif %}
           <span class="meta-actions">
             <button class="bookmark-btn" aria-label="Bookmark">&#9734;</button>
             <label class="read-toggle"><input type="checkbox" class="read-check"><span class="read-label">Read</span></label>

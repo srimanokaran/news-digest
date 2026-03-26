@@ -38,6 +38,20 @@ SEARCH_PAGES = 3  # pages per section (10 articles each)
 OLLAMA_MODEL = "llama3"
 OLLAMA_URL = "http://localhost:11434"
 
+# RSS feeds: (url, default_section)
+RSS_FEEDS = [
+    ("https://feeds.bbci.co.uk/news/world/rss.xml", "world"),
+    ("https://feeds.bbci.co.uk/news/technology/rss.xml", "technology"),
+    ("https://feeds.bbci.co.uk/news/business/rss.xml", "business"),
+    ("https://feeds.arstechnica.com/arstechnica/index", "technology"),
+    ("https://techcrunch.com/feed/", "technology"),
+    ("https://www.theguardian.com/world/rss", "world"),
+    ("https://www.theguardian.com/technology/rss", "technology"),
+    ("https://www.cnbc.com/id/100003114/device/rss/rss.html", "business"),
+    ("https://rss.nytimes.com/services/xml/rss/nyt/Science.xml", "science"),
+    ("https://rss.nytimes.com/services/xml/rss/nyt/Health.xml", "health"),
+]
+
 ALLOWED_TAGS = [
     "AI", "Big Tech", "Startups", "Markets", "Economy",
     "Trade", "US Politics", "World", "Conflict", "Climate",

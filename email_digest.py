@@ -65,6 +65,15 @@ def build_html(articles_by_section, date_str):
                 )
             border = 'border-left:3px solid #C5623A;padding-left:13px;' if priority >= 4 else ''
             abstract = a.get("abstract", "")
+            source_raw = a.get("source", "")
+            source_label = source_raw.replace("rss:", "").replace("top_stories", "NYT").replace("search", "NYT Search")
+            source_html = (
+                f' <span style="display:inline-block;font-size:9px;font-weight:700;'
+                f'color:#9B9490;background:#F5F0E8;border:1px solid #E8E0D4;'
+                f'border-radius:3px;padding:1px 5px;margin-left:6px;'
+                f'text-transform:uppercase;letter-spacing:0.03em;vertical-align:middle;">'
+                f'{source_label}</span>' if source_label else ''
+            )
             abstract_html = (
                 f'<br><span style="font-size:13px;color:#6B6560;line-height:1.6;">'
                 f'{abstract}</span>' if abstract else ''
@@ -73,6 +82,7 @@ def build_html(articles_by_section, date_str):
                 f'<tr><td style="padding:6px 0 6px 16px;{border}">'
                 f'<a href="{a["url"]}" style="color:#2D2B28;font-size:14px;'
                 f'font-weight:600;text-decoration:none;">{a["title"]} &#8599;</a>'
+                f'{source_html}'
                 f'{abstract_html}'
                 f'{tag_html}'
                 f'</td></tr>'

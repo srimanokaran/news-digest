@@ -107,11 +107,16 @@ def digest(date):
     markets = get_live_markets()
     # Collect unique tags across all articles
     all_tags = sorted({tag for a in articles for tag in a.get("tags", [])})
+    # Collect unique sources, cleaned up for display
+    def _clean_source(s):
+        return s.replace("rss:", "").replace("top_stories", "NYT").replace("search", "NYT Search")
+    all_sources = sorted({_clean_source(a.get("source", "")) for a in articles} - {""})
     return render_template(
         "digest.html",
         date=date,
         sections=sections,
         all_tags=all_tags,
+        all_sources=all_sources,
         markets=markets,
         total_count=total_count,
         prev_date=prev_date,
